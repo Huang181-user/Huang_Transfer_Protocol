@@ -8,6 +8,7 @@ import android.provider.DocumentsContract
 import android.provider.DocumentsProvider
 import android.util.Log
 import android.webkit.MimeTypeMap
+import org.json.JSONObject
 import org.json.JSONArray
 import java.io.File
 import java.io.FileNotFoundException
@@ -35,15 +36,30 @@ class HuangDocumentsProvider : DocumentsProvider() {
         return cursor
     }
 
+    // 🎯 HÀM QUAN TRỌNG: Cung cấp thông tin thật cho Zalo
     override fun queryDocument(documentId: String?, projection: Array<out String>?): Cursor {
         val cursor = MatrixCursor(projection ?: COLUMNS)
         val path = documentId ?: NetworkConfig.ROOT_PATH
+        
+        // Gọi Stat từ server để lấy Size thật
+        val json = HuangTransport.getStat(path)
+        var size = 0L
+        var name = path.substringAfterLast("/")
+        var isDir = true
+
+        if (!json.startsWith("ERROR")) {
+            val obj = JSONObject(json)
+            size = obj.getLong("size")
+            name = obj.getString("name")
+            isDir = obj.getBoolean("is_dir")
+        }
+
         cursor.newRow().apply {
             add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, path)
-            add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, path.substringAfterLast("/"))
-            add(DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.MIME_TYPE_DIR)
+            add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, name)
+            add(DocumentsContract.Document.COLUMN_MIME_TYPE, if(isDir) DocumentsContract.Document.MIME_TYPE_DIR else getMimeType(name))
+            add(DocumentsContract.Document.COLUMN_SIZE, size) // ✅ KHÔNG CÒN LÀ 0L NỮA!
             add(DocumentsContract.Document.COLUMN_FLAGS, DocumentsContract.Document.FLAG_SUPPORTS_DELETE)
-            add(DocumentsContract.Document.COLUMN_SIZE, 0L)
         }
         return cursor
     }
@@ -51,7 +67,7 @@ class HuangDocumentsProvider : DocumentsProvider() {
     override fun queryChildDocuments(parentDocId: String?, projection: Array<out String>?, sortOrder: String?): Cursor {
         val matrix = MatrixCursor(projection ?: COLUMNS)
         val json = HuangTransport.listFiles(parentDocId ?: NetworkConfig.ROOT_PATH)
-        if (!json.startsWith("ERROR")) {
+        if (!json.startsWith("ERROR") && json.isNotEmpty()) {
             val array = JSONArray(json)
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
@@ -65,10 +81,6 @@ class HuangDocumentsProvider : DocumentsProvider() {
             }
         }
         return matrix
-    }
-
-    override fun deleteDocument(documentId: String?) {
-        documentId?.let { HuangTransport.delete(it) }
     }
 
     override fun openDocument(documentId: String?, mode: String?, signal: CancellationSignal?): ParcelFileDescriptor {

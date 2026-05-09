@@ -11,17 +11,6 @@ import (
 	"github.com/quic-go/quic-go/http3"
 )
 
-// 🛠 VŨ KHÍ MỚI: Bắt log phải Sync realtime xuống đĩa
-type syncWriter struct {
-	file *os.File
-}
-
-func (sw syncWriter) Write(p []byte) (n int, err error) {
-	n, err = sw.file.Write(p)
-	sw.file.Sync() // 🚀 Ép dữ liệu xuống đĩa ngay lập tức
-	return
-}
-
 type FileItem struct {
 	Name  string `json:"name"`
 	Size  int64  `json:"size"`
@@ -31,50 +20,45 @@ type FileItem struct {
 
 func main() {
 	logPath := "/mnt/HDD_GB/Huang_Datas/Works/QUIC_test/quic_server/quic.log"
-	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil { log.Fatalf("❌ Lỗi log: %v", err) }
-	defer logFile.Close()
-
-	// Dùng syncWriter thay vì logFile trực tiếp
-	multiWriter := io.MultiWriter(os.Stdout, syncWriter{file: logFile})
+	logFile, _ := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	multiWriter := io.MultiWriter(os.Stdout, logFile)
 	log.SetOutput(multiWriter)
 
-	port := ":4433"
-	quicConf := &quic.Config{InitialPacketSize: 1200}
 	mux := http.NewServeMux()
 
+	// 📂 API 1: LIST - Liệt kê (Giữ nguyên)
 	mux.HandleFunc("/api/list", func(w http.ResponseWriter, r *http.Request) {
-		targetPath := r.URL.Query().Get("path")
-		log.Println("--------------------------------------------------")
-		log.Printf("[LIST_REQUEST] 🔍 Duyệt: %s", targetPath)
-		entries, err := os.ReadDir(targetPath)
-		if err != nil {
-			log.Printf("[LIST_ERROR] ❌ %v", err)
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		var results []FileItem
+		p := r.URL.Query().Get("path")
+		entries, err := os.ReadDir(p)
+		if err != nil { http.Error(w, err.Error(), 500); return }
+		var res []FileItem
 		for _, e := range entries {
 			info, _ := e.Info()
-			results = append(results, FileItem{Name: e.Name(), Size: info.Size(), IsDir: e.IsDir(), Path: filepath.Join(targetPath, e.Name())})
+			res = append(res, FileItem{Name: e.Name(), Size: info.Size(), IsDir: e.IsDir(), Path: filepath.Join(p, e.Name())})
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(results)
-		log.Printf("[LIST_SUCCESS] ✅ Đã gửi %d mục", len(results))
+		json.NewEncoder(w).Encode(res)
 	})
 
+	// 🔍 API 2: STAT - Lấy thông tin 1 file (MỚI ĐỂ FIX ZALO)
+	mux.HandleFunc("/api/stat", func(w http.ResponseWriter, r *http.Request) {
+		p := r.URL.Query().Get("path")
+		info, err := os.Stat(p)
+		if err != nil {
+			log.Printf("[STAT_ERROR] ❌ Không thấy file: %s", p)
+			http.Error(w, "Not Found", 404); return
+		}
+		log.Printf("[STAT_INFO] 📊 Báo cáo cho Zalo: %s (%d bytes)", p, info.Size())
+		json.NewEncoder(w).Encode(FileItem{Name: info.Name(), Size: info.Size(), IsDir: info.IsDir(), Path: p})
+	})
+
+	// 📥 API 3: DOWNLOAD (Giữ nguyên)
 	fileHandler := http.StripPrefix("/download/", http.FileServer(http.Dir("/")))
 	mux.HandleFunc("/download/", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("--------------------------------------------------")
-		log.Printf("[DOWNLOAD_START] 📥 Kéo file: %s", r.URL.Path)
+		log.Printf("[DOWNLOAD] 📥 Đang bàn giao: %s", r.URL.Path)
 		fileHandler.ServeHTTP(w, r)
-		log.Printf("[DOWNLOAD_FINISHED] ✅ Xong: %s", r.URL.Path)
 	})
 
-	server := &http3.Server{Addr: port, QUICConfig: quicConf, Handler: mux}
-	log.Println("==========================================================================")
-	log.Println("[ZHISERVER_V2_SYNC] 🚀 LOG ĐÃ ĐƯỢC ÉP SYNC REALTIME!")
-	log.Println("==========================================================================")
-	err = server.ListenAndServeTLS("zhiserver.tailc979c1.ts.net.crt", "zhiserver.tailc979c1.ts.net.key")
-	if err != nil { log.Fatal(err) }
+	server := &http3.Server{Addr: ":4433", QUICConfig: &quic.Config{InitialPacketSize: 1200}, Handler: mux}
+	log.Println("🚀 SERVER V2.1 - ĐÃ FIX LỖI SHARE FILE RỖNG")
+	server.ListenAndServeTLS("zhiserver.tailc979c1.ts.net.crt", "zhiserver.tailc979c1.ts.net.key")
 }
