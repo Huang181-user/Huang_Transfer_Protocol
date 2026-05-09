@@ -16,8 +16,6 @@ App_Android/local.properties
 
 # 4. Bỏ qua file thực thi (binary) của Go
 quic_server/quic_server
-
-# Binaries
 quic_server_bin
 *.exe
 *.exe~
@@ -25,10 +23,12 @@ quic_server_bin
 *.so
 *.dylib
 
-# Logs
+# 5. Bỏ qua file cấu hình nhạy cảm chứa IP/Pass/Port (KÉT SẮT)
+quic_server/config.json
+App_Android/transfer_server/app/src/main/assets/config.json
+
+# 6. Logs & OS metadata
 quic.log
 *.log
-
-# OS metadata
 .DS_Store
 Thumbs.db

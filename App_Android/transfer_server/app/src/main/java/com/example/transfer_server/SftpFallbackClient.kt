@@ -7,14 +7,14 @@ import com.jcraft.jsch.Session
 import java.util.Properties
 
 object SftpFallbackClient {
-    private const val TAG = "SFTP_FALLBACK"
-    private const val USER = "huang"
-    private const val PASS = "huangzhi1"
+    private val TAG = "SFTP_FALLBACK"
+    private val USER = AppSecrets.SFTP_USER
+    private val PASS = AppSecrets.SFTP_PASS
 
     fun listFilesJson(ip: String, path: String): String {
         return try {
             val jsch = JSch()
-            val session = jsch.getSession(USER, ip, 22).apply {
+            val session = jsch.getSession(USER, ip, AppSecrets.SFTP_PORT).apply {
                 setPassword(PASS)
                 setConfig(Properties().apply { put("StrictHostKeyChecking", "no") })
                 connect(5000)

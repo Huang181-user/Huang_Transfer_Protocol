@@ -1,0 +1,8 @@
+{
+  "local_ip": "192.168.1.83",
+  "ts_ip": "100.125.141.48",
+  "quic_port": "4433",
+  "sftp_user": "huang",
+  "sftp_pass": "huangzhi1",
+  "sftp_port": 22
+}

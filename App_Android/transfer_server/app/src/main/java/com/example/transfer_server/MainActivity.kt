@@ -15,9 +15,19 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import com.example.transfer_server.ui.theme.Transfer_serverTheme
 
+// ... (giữ nguyên import)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // NẠP VŨ KHÍ BÍ MẬT TRƯỚC KHI LÊN GIAO DIỆN
+        AppSecrets.init(this)
+
+        // Gán IP mặc định lên giao diện
+        NetworkConfig.LOCAL_IP = AppSecrets.LOCAL_IP
+        NetworkConfig.TS_IP = AppSecrets.TS_IP
+        NetworkConfig.ROOT_PATH = AppSecrets.ROOT_PATH // <--- Thêm dòng này vô!
+
         setContent {
             Transfer_serverTheme {
                 Surface(modifier = Modifier.fillMaxSize()) { QuicSuperScreen() }
@@ -25,6 +35,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+// ... (giữ nguyên phần còn lại)
 
 @Composable
 fun QuicSuperScreen() {
@@ -55,7 +66,7 @@ fun QuicSuperScreen() {
                     logMsg = NetworkConfig.getString("lan_fail")
                 }
 
-                val probeUrl = "https://${NetworkConfig.SERVER_IP}:4433/api/list?path=/"
+                val probeUrl = "https://${NetworkConfig.SERVER_IP}:${AppSecrets.QUIC_PORT}/api/list?path=${NetworkConfig.ROOT_PATH}"
                 NetworkConfig.QUIC_MTU = NetworkUtils.discoverBestMtu(probeUrl, !isLocal)
                 logMsg = "✅ IP: ${NetworkConfig.SERVER_IP} | MTU: ${NetworkConfig.QUIC_MTU}"
             }
