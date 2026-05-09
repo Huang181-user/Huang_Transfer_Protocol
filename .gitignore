@@ -1,0 +1,18 @@
+# 1. Bỏ qua Chứng chỉ và Private Keys (TUYỆT ĐỐI BẢO MẬT)
+*.pem
+*.key
+*.crt
+
+# 2. Bỏ qua file rác và file log
+tcp_dump.txt
+*.tar.gz
+
+# 3. Bỏ qua file Build của Android (Nặng và không cần thiết)
+App_Android/build/
+App_Android/app/build/
+App_Android/.idea/
+App_Android/.gradle/
+App_Android/local.properties
+
+# 4. Bỏ qua file thực thi (binary) của Go
+quic_server/quic_server
