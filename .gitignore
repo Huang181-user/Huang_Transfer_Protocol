@@ -33,6 +33,5 @@ quic.log
 .DS_Store
 Thumbs.db
 
-#7. Bo push file .gitignore va file script chay push.sh len github
-.gitignore
+#7. Bo push file script chay push.sh len github
 push.sh
