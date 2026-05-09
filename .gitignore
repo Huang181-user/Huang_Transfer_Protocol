@@ -35,3 +35,7 @@ Thumbs.db
 
 #7. Bo push file script chay push.sh len github
 push.sh
+
+#8. Bỏ qua các bản build của Go Mobile
+*.aar
+*.jar
