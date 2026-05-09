@@ -1,120 +1,80 @@
 package main
 
 import (
-	"fmt"
-	"net"
+	"encoding/json"
+	"io"
+	"log"
 	"net/http"
-	"time"
-
+	"os"
+	"path/filepath"
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 )
 
-func logEvent(method, client, path, status, protocol string) {
-	fmt.Printf("[%s] ⚡ [%s] %s | %s | %s\n", time.Now().Format("15:04:05"), protocol, method, client, status)
+// 🛠 VŨ KHÍ MỚI: Bắt log phải Sync realtime xuống đĩa
+type syncWriter struct {
+	file *os.File
 }
 
-func startMTUProbe() {
-	addr, _ := net.ResolveUDPAddr("udp", ":4434")
-	conn, _ := net.ListenUDP("udp", addr)
-	defer conn.Close()
-
-	fmt.Println("📡 [MTU-SERVER] Radar dung lượng thực READY (Port 4434)")
-	buf := make([]byte, 2048)
-	for {
-		n, remoteAddr, _ := conn.ReadFromUDP(buf)
-		response := []byte(fmt.Sprintf("RECV:%d", n))
-		conn.WriteToUDP(response, remoteAddr)
-	}
+func (sw syncWriter) Write(p []byte) (n int, err error) {
+	n, err = sw.file.Write(p)
+	sw.file.Sync() // 🚀 Ép dữ liệu xuống đĩa ngay lập tức
+	return
 }
 
-func fileHandler(w http.ResponseWriter, r *http.Request) {
-	// NHÉT VÉ VÀO MỌI LUỒNG ĐỂ CRONET LUÔN NHỚ ĐƯỜNG (Giữ nguyên)
-	w.Header().Set("Alt-Svc", `h3=":4433"; ma=86400`)
-
-	protocol := "TCP"
-	if r.ProtoMajor == 3 {
-		protocol = "QUIC"
-	}
-	logEvent(r.Method, r.RemoteAddr, r.URL.Path, "🚀 Đang kéo...", protocol)
-
-	// Bóc đường dẫn file từ URL (Ví dụ: /mnt/HDD_merge/...)
-	filePath := r.URL.Path
-
-	// Lệnh tối thượng: Bưng file thật từ ổ cứng ném cho điện thoại
-	http.ServeFile(w, r, filePath)
+type FileItem struct {
+	Name  string `json:"name"`
+	Size  int64  `json:"size"`
+	IsDir bool   `json:"is_dir"`
+	Path  string `json:"path"`
 }
 
 func main() {
+	logPath := "/mnt/HDD_GB/Huang_Datas/Works/QUIC_test/quic_server/quic.log"
+	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil { log.Fatalf("❌ Lỗi log: %v", err) }
+	defer logFile.Close()
+
+	// Dùng syncWriter thay vì logFile trực tiếp
+	multiWriter := io.MultiWriter(os.Stdout, syncWriter{file: logFile})
+	log.SetOutput(multiWriter)
+
+	port := ":4433"
+	quicConf := &quic.Config{InitialPacketSize: 1200}
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", fileHandler)
 
-	fmt.Println("\n=================================================================")
-	fmt.Println("🚀 [ZhiServer] KHỞI ĐỘNG HỆ THỐNG TRUYỀN TẢI ĐA GIAO THỨC (ABM)")
-	fmt.Println("=================================================================")
-
-	go startMTUProbe()
-
-	certFile := "zhiserver.tailc979c1.ts.net.crt"
-	keyFile := "zhiserver.tailc979c1.ts.net.key"
-
-	ipTailscale := "100.125.141.48:4433"
-	ipLAN := "192.168.1.83:4433" // Ný nhớ check lại IP LAN con Server chuẩn chưa nha
-
-	// 1. MỞ LUỒNG QUIC CHO TAILSCALE
-	serverTS := &http3.Server{
-		Addr:       ipTailscale,
-		Handler:    mux,
-		QUICConfig: &quic.Config{MaxIdleTimeout: 30 * time.Second, DisablePathMTUDiscovery: true},
-	}
-	go func() {
-		fmt.Printf(">>> [DEBUG-MAIN] 🚀 ĐANG MỞ CỔNG QUIC (UDP) TRÊN TAILSCALE: %s...\n", ipTailscale)
-		err := serverTS.ListenAndServeTLS(certFile, keyFile)
+	mux.HandleFunc("/api/list", func(w http.ResponseWriter, r *http.Request) {
+		targetPath := r.URL.Query().Get("path")
+		log.Println("--------------------------------------------------")
+		log.Printf("[LIST_REQUEST] 🔍 Duyệt: %s", targetPath)
+		entries, err := os.ReadDir(targetPath)
 		if err != nil {
-			fmt.Printf("\n[DEBUG-MAIN-FATAL] 💀 LỖI QUIC TS: %v\n", err)
+			log.Printf("[LIST_ERROR] ❌ %v", err)
+			http.Error(w, err.Error(), 500)
+			return
 		}
-	}()
-
-	// 2. MỞ LUỒNG QUIC CHO MẠNG LAN (Khôi phục)
-	serverLAN := &http3.Server{
-		Addr:       ipLAN,
-		Handler:    mux,
-		QUICConfig: &quic.Config{MaxIdleTimeout: 30 * time.Second},
-	}
-	go func() {
-		fmt.Printf(">>> [DEBUG-MAIN] 🚀 ĐANG MỞ CỔNG QUIC (UDP) TRÊN MẠNG LAN: %s...\n", ipLAN)
-		err := serverLAN.ListenAndServeTLS(certFile, keyFile)
-		if err != nil {
-			fmt.Printf("\n[DEBUG-MAIN-FATAL] 💀 LỖI QUIC LAN: %v\n", err)
+		var results []FileItem
+		for _, e := range entries {
+			info, _ := e.Info()
+			results = append(results, FileItem{Name: e.Name(), Size: info.Size(), IsDir: e.IsDir(), Path: filepath.Join(targetPath, e.Name())})
 		}
-	}()
-
-	// // 3. LUỒNG TCP DỰ PHÒNG (Cho mọi mạng)
-	// fmt.Println(">>> [DEBUG-MAIN] ⏳ Đang kích hoạt luồng TCP dự phòng (port 4433)...")
-	// err := http.ListenAndServeTLS("0.0.0.0:4433", certFile, keyFile, mux)
-	// if err != nil {
-	// 	fmt.Printf("\n[DEBUG-MAIN-FATAL] ❌ LỖI TCP CHÍNH: %v\n", err)
-	// }
-
-	// 3. MỞ HÉ CỬA TCP: Bẫy "Đóng Băng" (Treo luồng TCP để câu giờ cho QUIC)
-	fmt.Println(">>> [DEBUG-MAIN] ⏳ Đang mở bẫy đóng băng TCP (port 4433)...")
-
-	tcpMux := http.NewServeMux()
-	tcpMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// 1. Nhét bùa QUIC vào não Cronet để nó ưu tiên QUIC ở lần sau
-		w.Header().Set("Alt-Svc", `h3=":4433"; ma=86400`)
-
-		// 2. Không trả file, cũng không báo lỗi.
-		// Ép cái luồng TCP này phải NẰM CHỜ 15 GIÂY!
-		// Trong 15 giây này, thằng QUIC sẽ bay tới và lấy file thành công.
-		time.Sleep(15 * time.Second)
-
-		// Sau 15 giây, nếu QUIC xui xẻo rớt mạng, thì TCP mới nhả ra một lỗi nhẹ nhàng
-		http.Error(w, "QUIC is the King", http.StatusServiceUnavailable)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(results)
+		log.Printf("[LIST_SUCCESS] ✅ Đã gửi %d mục", len(results))
 	})
 
-	err := http.ListenAndServeTLS("0.0.0.0:4433", certFile, keyFile, tcpMux)
-	if err != nil {
-		fmt.Printf("\n[DEBUG-MAIN-FATAL] ❌ LỖI TCP CHÍNH: %v\n", err)
-	}
+	fileHandler := http.StripPrefix("/download/", http.FileServer(http.Dir("/")))
+	mux.HandleFunc("/download/", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("--------------------------------------------------")
+		log.Printf("[DOWNLOAD_START] 📥 Kéo file: %s", r.URL.Path)
+		fileHandler.ServeHTTP(w, r)
+		log.Printf("[DOWNLOAD_FINISHED] ✅ Xong: %s", r.URL.Path)
+	})
+
+	server := &http3.Server{Addr: port, QUICConfig: quicConf, Handler: mux}
+	log.Println("==========================================================================")
+	log.Println("[ZHISERVER_V2_SYNC] 🚀 LOG ĐÃ ĐƯỢC ÉP SYNC REALTIME!")
+	log.Println("==========================================================================")
+	err = server.ListenAndServeTLS("zhiserver.tailc979c1.ts.net.crt", "zhiserver.tailc979c1.ts.net.key")
+	if err != nil { log.Fatal(err) }
 }

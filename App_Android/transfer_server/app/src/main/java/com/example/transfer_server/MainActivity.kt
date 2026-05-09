@@ -3,45 +3,69 @@ package com.example.transfer_server
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import com.example.transfer_server.ui.theme.Transfer_serverTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
             Transfer_serverTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                Surface(modifier = Modifier.fillMaxSize()) { QuicSuperScreen() }
             }
         }
     }
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+fun QuicSuperScreen() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var logMsg by remember { mutableStateOf("Ready to scan...") }
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    Transfer_serverTheme {
-        Greeting("Android")
+    Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("HUANG QUIC SUPER PLUGIN", style = MaterialTheme.typography.headlineMedium)
+        Spacer(Modifier.height(20.dp))
+
+        OutlinedTextField(NetworkConfig.LOCAL_IP, { NetworkConfig.LOCAL_IP = it }, label = { Text("IP LAN") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(NetworkConfig.TS_IP, { NetworkConfig.TS_IP = it }, label = { Text("IP Tailscale") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(NetworkConfig.ROOT_PATH, { NetworkConfig.ROOT_PATH = it }, label = { Text("Server Path") }, modifier = Modifier.fillMaxWidth())
+
+        Button(onClick = {
+            scope.launch {
+                logMsg = NetworkConfig.getString("scan")
+                val isLocal = NetworkUtils.pingHost(NetworkConfig.LOCAL_IP)
+                
+                if (isLocal) {
+                    NetworkConfig.SERVER_IP = NetworkConfig.LOCAL_IP
+                    NetworkUtils.clearProcessBinding(context)
+                    logMsg = NetworkConfig.getString("lan_ok")
+                } else {
+                    NetworkConfig.SERVER_IP = NetworkConfig.TS_IP
+                    NetworkUtils.bindProcessToVpn(context)
+                    logMsg = NetworkConfig.getString("lan_fail")
+                }
+
+                val probeUrl = "https://${NetworkConfig.SERVER_IP}:4433/api/list?path=/"
+                NetworkConfig.QUIC_MTU = NetworkUtils.discoverBestMtu(probeUrl, !isLocal)
+                logMsg = "✅ IP: ${NetworkConfig.SERVER_IP} | MTU: ${NetworkConfig.QUIC_MTU}"
+            }
+        }, Modifier.padding(top = 16.dp)) {
+            Text(NetworkConfig.getString("confirm"))
+        }
+
+        Spacer(Modifier.height(24.dp))
+        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.DarkGray)) {
+            Text(logMsg, Modifier.padding(16.dp), color = Color.Cyan)
+        }
     }
 }

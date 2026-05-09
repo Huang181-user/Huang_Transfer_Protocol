@@ -16,3 +16,19 @@ App_Android/local.properties
 
 # 4. Bỏ qua file thực thi (binary) của Go
 quic_server/quic_server
+
+# Binaries
+quic_server_bin
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Logs
+quic.log
+*.log
+
+# OS metadata
+.DS_Store
+Thumbs.db

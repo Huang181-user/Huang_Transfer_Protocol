@@ -64,4 +64,5 @@ dependencies {
 
     // FIX TẠI ĐÂY: okhttp-cronet đổi thành okhttp-android
     implementation("com.squareup.okhttp3:okhttp-android:5.0.0-alpha.11")
+    implementation(files("libs/quicdroid.aar"))
 }

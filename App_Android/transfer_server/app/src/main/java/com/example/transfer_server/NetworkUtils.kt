@@ -4,37 +4,56 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import quicclient.Quicclient
+import java.net.InetAddress
 
 object NetworkUtils {
-    // Hàm này sẽ trói CẢ TIẾN TRÌNH APP vào VPN
-    fun bindProcessToVpn(context: Context): Boolean {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val networks = cm.allNetworks
+    private const val TAG = "HUANG_NET_UTILS"
 
-        Log.d("HUANG_SUPER_DEBUG", "==================================================")
-        Log.d("HUANG_SUPER_DEBUG", "🔍 ĐANG TÌM MẠNG VPN (TAILSCALE)...")
+    suspend fun pingHost(ip: String): Boolean = withContext(Dispatchers.IO) {
+        return@withContext try {
+            Log.d(TAG, "[PING] 🔍 Kiểm tra sức khỏe IP: $ip")
+            InetAddress.getByName(ip).isReachable(1500)
+        } catch (e: Exception) { false }
+    }
 
-        for (network in networks) {
-            val caps = cm.getNetworkCapabilities(network)
-            if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
-                // ĐÂY LÀ VŨ KHÍ TỐI THƯỢNG CỦA ANDROID
-                val success = cm.bindProcessToNetwork(network)
-                Log.d("HUANG_SUPER_DEBUG", "✅ [THÀNH CÔNG] ĐÃ ÉP TOÀN BỘ APP CHẠY VÀO VPN: $success")
-                Log.d("HUANG_SUPER_DEBUG", "👉 Gói tin C++ giờ sẽ KHÔNG THỂ lách ra ngoài được nữa!")
-                Log.d("HUANG_SUPER_DEBUG", "==================================================")
-                return success
+    suspend fun discoverBestMtu(targetUrl: String, isVpn: Boolean): Int = withContext(Dispatchers.IO) {
+        var min = 1200
+        var max = if (isVpn) 1280 else 1472
+        var best = 1200
+        Log.d(TAG, "==================================================")
+        Log.d(TAG, "[MTU_SCAN] 🚀 BẮT ĐẦU CHẶT NHỊ PHÂN MTU")
+        while (min <= max) {
+            val mid = (min + max) / 2
+            if (Quicclient.probeMTU(targetUrl, mid.toLong())) {
+                Log.d(TAG, "[MTU_SCAN] ✅ $mid bytes: OK")
+                best = mid
+                min = mid + 1
+            } else {
+                Log.e(TAG, "[MTU_SCAN] ❌ $mid bytes: NGHẼN")
+                max = mid - 1
             }
         }
+        Log.d(TAG, "[MTU_SCAN] 🏆 MTU TỐT NHẤT: $best")
+        return@withContext best
+    }
 
-        Log.e("HUANG_SUPER_DEBUG", "❌ KHÔNG TÌM THẤY VPN. Đã bật Tailscale chưa?")
-        Log.d("HUANG_SUPER_DEBUG", "==================================================")
+    fun bindProcessToVpn(context: Context): Boolean {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        cm.allNetworks.forEach { network ->
+            if (cm.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true) {
+                Log.d(TAG, "[VPN] 🔗 Đã ép app vào hầm Tailscale")
+                return cm.bindProcessToNetwork(network)
+            }
+        }
         return false
     }
 
-    // Hàm này để nhả mạng ra khi ný chuyển về tải file bằng LAN
     fun clearProcessBinding(context: Context) {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         cm.bindProcessToNetwork(null)
-        Log.d("HUANG_SUPER_DEBUG", "🔓 ĐÃ MỞ KHÓA MẠNG (APP TRỞ VỀ ĐƯỜNG ĐI MẶC ĐỊNH)")
+        Log.d(TAG, "[VPN] 🔓 Đã gỡ bỏ ràng buộc mạng")
     }
 }
