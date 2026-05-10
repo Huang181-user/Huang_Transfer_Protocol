@@ -1,4 +1,4 @@
-# HUANG QUIC Transfer Protocol (HQTP)
+# HUANG Transfer Protocol (HTP)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://golang.org)
@@ -17,7 +17,7 @@
 ## English
 
 ### Introduction
-**HUANG QUIC Transfer Protocol (HQTP)** is a high-performance, secure file transfer system designed for modern network environments. It leverages the **HTTP/3 (QUIC)** protocol to provide ultra-fast speeds, low latency, and resilience against packet loss. Built with a "Zero-Hardcode" security philosophy, it is ideal for managing large-scale storage (e.g., 17TB+ home servers) over both LAN and VPN (Tailscale).
+**HUANG Transfer Protocol (HTP)** is a high-performance, secure file transfer system designed for modern network environments. It leverages the **HTTP/3 (QUIC)** protocol to provide ultra-fast speeds, low latency, and resilience against packet loss. Built with a "Zero-Hardcode" security philosophy, it is ideal for managing large-scale storage (e.g., 17TB+ home servers) over both LAN and VPN (Tailscale).
 
 ### Key Features
 * **QUIC (HTTP/3) Engine:** High-speed data transfer optimized for various network conditions.
@@ -33,7 +33,7 @@
 ## Tiếng Việt
 
 ### Giới thiệu
-**HUANG QUIC Transfer Protocol (HQTP)** là hệ thống truyền tải dữ liệu hiệu suất cao, được thiết kế tối ưu cho môi trường mạng hiện đại. Dự án sử dụng giao thức **HTTP/3 (QUIC)** nhằm mang lại tốc độ vượt trội, độ trễ thấp và khả năng chống mất gói tin tuyệt vời. Với triết lý bảo mật "Zero-Hardcode", hệ thống này là giải pháp hoàn hảo để quản lý máy chủ lưu trữ lớn (17TB+) qua mạng nội bộ hoặc VPN (Tailscale).
+**HUANG Transfer Protocol (HTP)** là hệ thống truyền tải dữ liệu hiệu suất cao, được thiết kế tối ưu cho môi trường mạng hiện đại. Dự án sử dụng giao thức **HTTP/3 (QUIC)** nhằm mang lại tốc độ vượt trội, độ trễ thấp và khả năng chống mất gói tin tuyệt vời. Với triết lý bảo mật "Zero-Hardcode", hệ thống này là giải pháp hoàn hảo để quản lý máy chủ lưu trữ lớn (17TB+) qua mạng nội bộ hoặc VPN (Tailscale).
 
 ### Tính năng chính
 * **Lõi QUIC (HTTP/3):** Tối ưu hóa tốc độ truyền tải, đặc biệt hiệu quả trong môi trường mạng không ổn định.
@@ -49,7 +49,7 @@
 ## 简体中文
 
 ### 项目简介
-**HUANG QUIC 传输协议 (HQTP)** 是一款专为现代网络环境设计的高性能、安全文件传输系统。该项目利用 **HTTP/3 (QUIC)** 协议提供极速传输、低延迟以及卓越的丢包恢复能力。秉承“零硬编码”的安全理念，它是通过局域网 (LAN) 或 VPN (Tailscale) 管理大规模存储（如 17TB+ 家庭服务器）的理想解决方案。
+**HUANG 传输协议 (HTP)** 是一款专为现代网络环境设计的高性能、安全文件传输系统。该项目利用 **HTTP/3 (QUIC)** 协议提供极速传输、低延迟以及卓越的丢包恢复能力。秉承“零硬编码”的安全理念，它是通过局域网 (LAN) 或 VPN (Tailscale) 管理大规模存储（如 17TB+ 家庭服务器）的理想解决方案。
 
 ### 核心功能
 * **QUIC (HTTP/3) 引擎：** 针对各种网络状况优化的极速数据传输。
